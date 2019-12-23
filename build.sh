@@ -2,17 +2,16 @@
 
 set -e -u
 
-iso_name=archlinux
-iso_label="ARCH_$(date +%Y%m)"
-iso_publisher="Arch Linux <http://www.archlinux.org>"
-iso_application="Arch Linux Live/Rescue CD"
-iso_version=$(date +%Y.%m.%d)
+iso_name=arcolinux
+iso_label="arcolinux-v19.12.17"
+iso_publisher="ArcoLinux <http://www.arcolinux.info>"
+iso_application="ArcoLinux Live/Rescue CD"
+iso_version="v19.12.17"
 install_dir=arch
 work_dir=work
 out_dir=out
 gpg_key=
 
-offline_mirror_path=//x86_64/airootfs/srv/http/arch_offline
 verbose=""
 script_path=$(readlink -f ${0%/*})
 
@@ -51,9 +50,16 @@ run_once() {
         touch ${work_dir}/build.${1}
     fi
 }
+echo "###################################################################"
+tput setaf 3;echo "0. start of the build script";tput sgr0
+echo "###################################################################"
+
 
 # Setup custom pacman.conf with current cache directories.
 make_pacman_conf() {
+    echo "###################################################################"
+    tput setaf 3;echo "1. Setup custom pacman.conf with current cache directories.";tput sgr0
+    echo "###################################################################"
     local _cache_dirs
     _cache_dirs=($(pacman -v 2>&1 | grep '^Cache Dirs:' | sed 's/Cache Dirs:\s*//g'))
     sed -r "s|^#?\\s*CacheDir.+|CacheDir = $(echo -n ${_cache_dirs[@]})|g" ${script_path}/pacman.conf > ${work_dir}/pacman.conf
@@ -61,21 +67,30 @@ make_pacman_conf() {
 
 # Base installation, plus needed packages (airootfs)
 make_basefs() {
+    echo "###################################################################"
+    tput setaf 3;echo "2. Base installation, plus needed packages (airootfs)";tput sgr0
+    echo "###################################################################"
     mkarchiso ${verbose} -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" init
     mkarchiso ${verbose} -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -p "haveged intel-ucode amd-ucode memtest86+ mkinitcpio-nfs-utils nbd zsh efitools" install
 }
 
 # Additional packages (airootfs)
 make_packages() {
+    echo "###################################################################"
+    tput setaf 3;echo "3. Additional packages (airootfs)";tput sgr0
+    echo "###################################################################"
     mkarchiso ${verbose} -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -p "$(grep -h -v ^# ${script_path}/packages.x86_64)" install
 }
 
 # Copy mkinitcpio archiso hooks and build initramfs (airootfs)
 make_setup_mkinitcpio() {
+    echo "###################################################################"
+    tput setaf 3;echo "4. Copy mkinitcpio archiso hooks and build initramfs (airootfs)";tput sgr0
+    echo "###################################################################"
     local _hook
     mkdir -p ${work_dir}/x86_64/airootfs/etc/initcpio/hooks
     mkdir -p ${work_dir}/x86_64/airootfs/etc/initcpio/install
-    for _hook in archiso archiso_shutdown archiso_pxe_common archiso_pxe_nbd archiso_pxe_http archiso_pxe_nfs archiso_loop_mnt; do
+    for _hook in archiso archiso_shutdown archiso_loop_mnt; do
         cp /usr/lib/initcpio/hooks/${_hook} ${work_dir}/x86_64/airootfs/etc/initcpio/hooks
         cp /usr/lib/initcpio/install/${_hook} ${work_dir}/x86_64/airootfs/etc/initcpio/install
     done
@@ -96,13 +111,16 @@ make_setup_mkinitcpio() {
 
 # Customize installation (airootfs)
 make_customize_airootfs() {
+    echo "###################################################################"
+    tput setaf 3;echo "5. Customize installation (airootfs)";tput sgr0
+    echo "###################################################################"
     cp -af ${script_path}/airootfs ${work_dir}/x86_64
 
-    cp ${script_path}/pacman.conf ${work_dir}/x86_64/airootfs/etc
+    cp ${script_path}/pacman.conf.work_dir ${work_dir}/x86_64/airootfs/etc/pacman.conf
 
     curl -o ${work_dir}/x86_64/airootfs/etc/pacman.d/mirrorlist 'https://www.archlinux.org/mirrorlist/?country=all&protocol=http&use_mirror_status=on'
 
-    lynx -dump -nolist 'https://wiki.archlinux.org/index.php/Installation_Guide?action=render' >> ${work_dir}/x86_64/airootfs/root/install.txt
+    #lynx -dump -nolist 'https://wiki.archlinux.org/index.php/Installation_Guide?action=render' >> ${work_dir}/x86_64/airootfs/root/install.txt
 
     mkarchiso ${verbose} -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r '/root/customize_airootfs.sh' run
     rm ${work_dir}/x86_64/airootfs/root/customize_airootfs.sh
@@ -110,6 +128,9 @@ make_customize_airootfs() {
 
 # Prepare kernel/initramfs ${install_dir}/boot/
 make_boot() {
+    echo "###################################################################"
+    tput setaf 3;echo "6. Prepare kernel/initramfs ${install_dir}/boot/";tput sgr0
+    echo "###################################################################"
     mkdir -p ${work_dir}/iso/${install_dir}/boot/x86_64
     cp ${work_dir}/x86_64/airootfs/boot/archiso.img ${work_dir}/iso/${install_dir}/boot/x86_64/archiso.img
     cp ${work_dir}/x86_64/airootfs/boot/vmlinuz-linux ${work_dir}/iso/${install_dir}/boot/x86_64/vmlinuz
@@ -117,6 +138,9 @@ make_boot() {
 
 # Add other aditional/extra files to ${install_dir}/boot/
 make_boot_extra() {
+    echo "###################################################################"
+    tput setaf 3;echo "7. Add other aditional/extra files to ${install_dir}/boot/";tput sgr0
+    echo "###################################################################"
     cp ${work_dir}/x86_64/airootfs/boot/memtest86+/memtest.bin ${work_dir}/iso/${install_dir}/boot/memtest
     cp ${work_dir}/x86_64/airootfs/usr/share/licenses/common/GPL2/license.txt ${work_dir}/iso/${install_dir}/boot/memtest.COPYING
     cp ${work_dir}/x86_64/airootfs/boot/intel-ucode.img ${work_dir}/iso/${install_dir}/boot/intel_ucode.img
@@ -127,6 +151,9 @@ make_boot_extra() {
 
 # Prepare /${install_dir}/boot/syslinux
 make_syslinux() {
+    echo "###################################################################"
+    tput setaf 3;echo "8. Prepare /${install_dir}/boot/syslinux";tput sgr0
+    echo "###################################################################"
     _uname_r=$(file -b ${work_dir}/x86_64/airootfs/boot/vmlinuz-linux| awk 'f{print;f=0} /version/{f=1}' RS=' ')
     mkdir -p ${work_dir}/iso/${install_dir}/boot/syslinux
     for _cfg in ${script_path}/syslinux/*.cfg; do
@@ -144,6 +171,9 @@ make_syslinux() {
 
 # Prepare /isolinux
 make_isolinux() {
+    echo "###################################################################"
+    tput setaf 3;echo "9. Prepare /isolinux";tput sgr0
+    echo "###################################################################"
     mkdir -p ${work_dir}/iso/isolinux
     sed "s|%INSTALL_DIR%|${install_dir}|g" ${script_path}/isolinux/isolinux.cfg > ${work_dir}/iso/isolinux/isolinux.cfg
     cp ${work_dir}/x86_64/airootfs/usr/lib/syslinux/bios/isolinux.bin ${work_dir}/iso/isolinux/
@@ -153,6 +183,9 @@ make_isolinux() {
 
 # Prepare /EFI
 make_efi() {
+    echo "###################################################################"
+    tput setaf 3;echo "10. Prepare /EFI";tput sgr0
+    echo "###################################################################"
     mkdir -p ${work_dir}/iso/EFI/boot
     cp ${work_dir}/x86_64/airootfs/usr/share/efitools/efi/PreLoader.efi ${work_dir}/iso/EFI/boot/bootx64.efi
     cp ${work_dir}/x86_64/airootfs/usr/share/efitools/efi/HashTool.efi ${work_dir}/iso/EFI/boot/
@@ -176,6 +209,9 @@ make_efi() {
 
 # Prepare efiboot.img::/EFI for "El Torito" EFI boot mode
 make_efiboot() {
+    echo "###################################################################"
+    tput setaf 3;echo "11. Prepare efiboot.img::/EFI for "El Torito" EFI boot mode";tput sgr0
+    echo "###################################################################"
     mkdir -p ${work_dir}/iso/EFI/archiso
     truncate -s 64M ${work_dir}/iso/EFI/archiso/efiboot.img
     mkfs.fat -n ARCHISO_EFI ${work_dir}/iso/EFI/archiso/efiboot.img
@@ -213,6 +249,9 @@ make_efiboot() {
 
 # Build airootfs filesystem image
 make_prepare() {
+    echo "###################################################################"
+    tput setaf 3;echo "12. Build airootfs filesystem image";tput sgr0
+    echo "###################################################################"
     cp -a -l -f ${work_dir}/x86_64/airootfs ${work_dir}
     mkarchiso ${verbose} -w "${work_dir}" -D "${install_dir}" pkglist
     mkarchiso ${verbose} -w "${work_dir}" -D "${install_dir}" ${gpg_key:+-g ${gpg_key}} prepare
@@ -221,105 +260,11 @@ make_prepare() {
 }
 
 # Build ISO
-build_aur () {
-    # TODO: Create a temp dir that isn't just the package name,
-    #       just in case there's a freak accidental name collision
-    old_dir=`pwd`
-    package=$1
-
-    # Extract the AUR package.
-    cd /tmp
-    rm -rf ${package} ${package}.tar.gz
-    wget "https://aur.archlinux.org/cgit/aur.git/snapshot/${package}.tar.gz"
-    tar xvzf "${package}.tar.gz"
-
-    # Prep with a build-user (removed at the end):
-    # TODO: Check if already exists, if so, randomize name/don't remove at the end.
-    # TODO: Don't give permission to wheel, give it only to this user (easy, but needs debugging first)
-    EXISTS=1
-    if [ ! $(id -u builder) ]; then
-        EXISTS=0
-        useradd -m -G wheel builder
-        sed -i 's/# %wheel ALL=(ALL) NO/%wheel ALL=(ALL) NO/' /etc/sudoers
-    fi
-    cd ${package}
-    build_dir=$(pwd)
-    chown -R builder.builder /tmp/${package}
-    echo " => Buiilding ${package}"
-    # 2>&1
-    su - builder -c "(cd ${build_dir}; makepkg -s --noconfirm)" >/dev/null
-    sed -i 's/%wheel ALL=(ALL) NO/# %wheel ALL=(ALL) NO/' /etc/sudoers
-
-    echo " => Adding ${package} to local AUR hosting directory ${offline_mirror_path}"
-    mkdir -p "${offline_mirror_path}/os/x86_64"
-    sh -c "cp *.xz ${offline_mirror_path}/os/x86_64"
-    sh -c "repo-add ${offline_mirror_path}/os/x86_64/arch_offline.db.tar.gz ${offline_mirror_path}/os/x86_64/*.xz"
-
-    ## Long term storage inside the ISO? (if we want to install from CD to disk or host it to others)
-    # sh -c "mv *.xz ${old_dir}/$2/$1.pkg.tar.xz"
-
-    cd ${old_dir}
-    if [ ${EXISTS} -lt 1 ]; then
-        userdel builder
-        rm -rf /home/builder
-    fi
-    rm -rf /tmp/${package}
-    rm /tmp/${package}.tar.gz
-}
-
-make_aur_packages() {
-    touch ${script_path}/packages.aur
-    packages=$(cat ${script_path}/packages.aur)
-    if [[ -n ${packages} ]]; then
-        for package in ${packages}; do
-            build_aur ${package}
-        done
-    fi
-}
-
-make_offline_mirror() {
-    packages=$(cat ${script_path}/packages.x86_64)
-    if  [[ -n ${packages} ]]; then
-        echo " => Downloading packages to offline mirror."
-        sh -c "pacman --noconfirm --dbpath /tmp/ -Syu -w --cachedir ${offline_mirror_path} $(echo ${packages} | sed ':a;N;$!ba;s/\n/ /g')"
-    fi
-    echo " => Downloading core packages to offline mirror."
-    #sh -c "pacman --noconfirm --dbpath /tmp/ -Syu -w --cachedir ${offline_mirror_path} gawk gettext grep gzip pacman sed texinfo util-linux"
-    sh -c "pacman --noconfirm --dbpath /tmp/ -Syu -w --cachedir ${offline_mirror_path} base base-devel"
-    sh -c "repo-add ${offline_mirror_path}/arch_offline.db.tar.gz ${offline_mirror_path}/*.xz"
-}
-patch_in_local_mirror() {
-    # [arch_offline]\n
-    # SigLevel = Optional TrustAll\n
-    # Server = file:///tmp/archlive_offline/work/x86_64/airootfs/srv/http/arch_offline/os/x86_64/
-    # sh -c "sed -i 's?\[core\]?\[arch_offline\]\nServer = file://${script_path}/${work_dir}/x86_64/airootfs/srv/http/\$repo/os/\$arch\nSigLevel = Optional TrustAll\n\n&?' ${work_dir}/pacman.conf"
-    cat <<EOF >> ${work_dir}/pacman.conf
-[arch_offline]
-SigLevel = Optional TrustAll
-Server = file://${offline_mirror_path}/os/x86_64/
-EOF
-}
-
-install_aur() {
-    mkarchiso ${verbose} -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -p "$(grep -h -v ^# ${script_path}/packages.aur)" install
-}
-
-finalize_offline() {
-    ## == Remove online repo references
-    sed -i 's?\[core\]?# &?' ${script_path}/${work_dir}/x86_64/airootfs/etc/pacman.conf
-    sed -i 's?\[extra\]?# &?' ${script_path}/${work_dir}/x86_64/airootfs/etc/pacman.conf
-    sed -i 's?\[community\]?# &?' ${script_path}/${work_dir}/x86_64/airootfs/etc/pacman.conf
-    sed -i 's?Include = /etc/pacman.d/mirrorlist?# &?' ${script_path}/${work_dir}/x86_64/airootfs/etc/pacman.conf
-
-    cat <<EOF >> ${script_path}/${work_dir}/x86_64/airootfs/etc/pacman.conf
-[arch_offline]
-SigLevel = Optional TrustAll
-Server = file:///srv/http/arch_offline/os/x86_64/
-EOF
-}
-
 make_iso() {
-    mkarchiso ${verbose} -w "${work_dir}" -D "${install_dir}" -L "${iso_label}" -P "${iso_publisher}" -A "${iso_application}" -o "${out_dir}" iso "${iso_name}-${iso_version}-x86_64.iso"
+    echo "###################################################################"
+    tput setaf 3;echo "13. Build ISO";tput sgr0
+    echo "###################################################################"
+    mkarchiso ${verbose} -w "${work_dir}" -D "${install_dir}" -L "${iso_label}" -P "${iso_publisher}" -A "${iso_application}" -o "${out_dir}" iso "${iso_name}-${iso_version}.iso"
 }
 
 if [[ ${EUID} -ne 0 ]]; then
@@ -338,8 +283,7 @@ while getopts 'N:V:L:P:A:D:w:o:g:vh' arg; do
         w) work_dir="${OPTARG}" ;;
         o) out_dir="${OPTARG}" ;;
         g) gpg_key="${OPTARG}" ;;
-        v) offline_mirror_path=//x86_64/airootfs/srv/http/arch_offline
-verbose="-v" ;;
+        v) verbose="-v" ;;
         h) _usage 0 ;;
         *)
            echo "Invalid argument '${arg}'"
@@ -354,12 +298,6 @@ run_once make_pacman_conf
 run_once make_basefs
 run_once make_packages
 run_once make_setup_mkinitcpio
-run_once make_aur_packages
-run_once make_offline_mirror
-run_once patch_in_local_mirror
-run_once install_aur
-run_once finalize_offline
-
 run_once make_customize_airootfs
 run_once make_boot
 run_once make_boot_extra
